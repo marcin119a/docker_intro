@@ -1,0 +1,52 @@
+
+from fastapi import FastAPI
+from haystack.dataclasses import ChatMessage
+from pydantic import BaseModel
+
+from search.hybrid import search as hybrid_search
+from agents.course.agent import agent
+
+app = FastAPI(title="Doradca szkoleniowy", version="0.1.0")
+
+
+class Question(BaseModel):
+    pytanie: str
+
+
+class Answer(BaseModel):
+    odpowiedz: str
+
+
+class Course(BaseModel):
+    nazwa: str
+    kategoria: str
+    dni: int
+    pdf_url: str
+    score: float
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/search")
+def search(q: str) -> list[Course]:
+    """Wyszukiwanie hybrydowe w katalogu szkoleń (bez LLM)."""
+    return [
+        Course(
+            nazwa=doc.meta["nazwa"],
+            kategoria=doc.meta["kategoria"],
+            dni=int(doc.meta["dni"]),
+            pdf_url=doc.meta["pdf_url"],
+            score=doc.score,
+        )
+        for doc in hybrid_search.search(q)
+    ]
+
+
+@app.post("/chat")
+def chat(body: Question) -> Answer:
+    """Pytanie do agenta-doradcy; zwraca odpowiedź LLM."""
+    wynik = agent.run([ChatMessage.from_user(body.pytanie)])
+    return Answer(odpowiedz=wynik["messages"][-1].text)
