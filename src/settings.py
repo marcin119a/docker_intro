@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     openai_embedding_model: str = "text-embedding-3-small"  
     szkolenia_parquet: str = "data_rag/szkolenia.parquet"
+    openai_index_path: str = "data_rag/index_openai.json"
 
 
 settings = Settings()

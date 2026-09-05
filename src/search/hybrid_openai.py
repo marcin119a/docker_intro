@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pandas as pd
 from haystack import Document, Pipeline
@@ -17,31 +18,46 @@ from settings import settings
 MODEL = settings.openai_embedding_model
 API_KEY = Secret.from_token(settings.openai_api_key)
 
-# 1. Wczytanie szkoleń z parqueta -> dokumenty Haystack
-df = pd.read_parquet(settings.szkolenia_parquet)
-docs = [
-    Document(
-        content=f"{row.nazwa}\n{row.opis}",
-        meta={
-            "nazwa": row.nazwa,
-            "kategoria": row.kategoria,
-            "dni": row.dni,
-            "pdf_url": row.pdf_url,
-        },
-    )
-    for row in df.itertuples()
-]
+INDEX_PATH = Path(settings.openai_index_path)
 
-# 2. Indeksowanie: jeden magazyn obsługuje i BM25, i wyszukiwanie po embeddingach.
-#    Embeddingi dokumentów liczy API OpenAI (w paczkach, jedno wywołanie na batch_size dokumentów).
-store = InMemoryDocumentStore()
-doc_embedder = OpenAIDocumentEmbedder(api_key=API_KEY, model=MODEL)
-doc_embedder.warm_up()
-store.write_documents(doc_embedder.run(docs)["documents"], policy=DuplicatePolicy.OVERWRITE)
+
+def load_docs() -> list[Document]:
+    df = pd.read_parquet(settings.szkolenia_parquet)
+    return [
+        Document(
+            content=f"{row.nazwa}\n{row.opis}",
+            meta={
+                "nazwa": row.nazwa,
+                "kategoria": row.kategoria,
+                "dni": int(row.dni),
+                "pdf_url": row.pdf_url,
+            },
+        )
+        for row in df.itertuples()
+    ]
+
+
+def build_index(path: Path = INDEX_PATH) -> InMemoryDocumentStore:
+    store = InMemoryDocumentStore()
+    doc_embedder = OpenAIDocumentEmbedder(api_key=API_KEY, model=MODEL)
+    doc_embedder.warm_up()
+    store.write_documents(doc_embedder.run(load_docs())["documents"], policy=DuplicatePolicy.OVERWRITE)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    store.save_to_disk(str(path))
+    return store
+
+
+def load_index(path: Path = INDEX_PATH) -> InMemoryDocumentStore:
+    if path.exists():
+        return InMemoryDocumentStore.load_from_disk(str(path))
+    print(f"Brak indeksu {path} – buduję go (wywołania OpenAI)...", file=sys.stderr)
+    return build_index(path)
+
+
+store = load_index()
+
 
 def create_pipeline() -> Pipeline:
-    # 3. Pipeline zapytania: dwa retrievery + złączenie wyników (Reciprocal Rank Fusion).
-    #    Zapytanie musi być zembedowane TYM SAMYM modelem co dokumenty.
     pipeline = Pipeline()
     pipeline.add_component("text_embedder", OpenAITextEmbedder(api_key=API_KEY, model=MODEL))
     pipeline.add_component("bm25", InMemoryBM25Retriever(store, top_k=10))
@@ -52,8 +68,7 @@ def create_pipeline() -> Pipeline:
     pipeline.connect("embedding", "joiner")
     return pipeline
 
-# 4. Funkcja wyszukiwania — ten sam interfejs co hybrid_search.search, więc tools.py
-#    wystarczy przełączyć na ten moduł.
+
 def search(query: str) -> list[Document]:
     pipeline = create_pipeline()
     result = pipeline.run({"text_embedder": {"text": query}, "bm25": {"query": query}})
@@ -61,7 +76,12 @@ def search(query: str) -> list[Document]:
 
 
 if __name__ == "__main__":
-    query = " ".join(sys.argv[1:]) or "szkolenie z Docker"
+    args = sys.argv[1:]
+    if "--rebuild" in args:
+        # Przebudowa indeksu po zmianie danych: python src/search/hybrid_openai.py --rebuild [zapytanie]
+        args.remove("--rebuild")
+        store = build_index()
+    query = " ".join(args) or "szkolenie z Docker"
     print(f"Zapytanie: {query}\n")
     for doc in search(query):
         print(f"{doc.score:.4f}  {doc.meta['nazwa']}  ({doc.meta['kategoria']}, {doc.meta['dni']} dni)")
