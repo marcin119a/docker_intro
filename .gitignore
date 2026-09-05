@@ -1,0 +1,9 @@
+data_rag/
+
+.env
+
+uv.lock
+
+__pycache__/
+
+.DS_Store
