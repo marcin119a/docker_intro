@@ -1,0 +1,12 @@
+.venv
+.git
+__pycache__
+*.pyc
+
+.env.*
+.DS_Store
+
+
+data_rag/programy
+data_rag/programy.zip
+stt
