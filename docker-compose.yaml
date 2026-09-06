@@ -1,0 +1,50 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    ports:
+      - "6333:6333"  
+      - "6334:6334"  
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  
+  indexer: 
+    build: .
+    command: python src/indexer.py
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      FASTEMBED_CACHE_PATH: /root/.cache/huggingface/fastembed
+    volumes:
+      # Te same modele embeddingów co api — pobrane raz, wspólny wolumen.
+      - hf_cache:/root/.cache/huggingface
+      # Plików Markdown nie ma w obrazie (.dockerignore): katalog z hosta, tylko do odczytu.
+      - ./data_rag/programy:/app/data_rag/programy:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+  
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333  
+      FASTEMBED_CACHE_PATH: /root/.cache/huggingface/fastembed 
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      indexer:
+        condition: service_completed_successfully
+
+
+volumes:
+  qdrant_storage:
+  hf_cache:

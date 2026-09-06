@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     szkolenia_parquet: str = "data_rag/szkolenia.parquet"
     openai_index_path: str = "data_rag/index_openai.json"
     index_path: str = "data_rag/index.json"
+    programy_dir: str = "data_rag/programy"
+    qdrant_url: str = "http://qdrant:6333"
 
 
 settings = Settings()

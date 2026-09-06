@@ -4,6 +4,7 @@ from haystack.dataclasses import ChatMessage
 from pydantic import BaseModel
 
 from search.hybrid import search as hybrid_search
+from search import hybrid_search_chunks
 from agents.course.agent import agent
 
 app = FastAPI(title="Doradca szkoleniowy", version="0.1.0")
@@ -24,6 +25,13 @@ class Course(BaseModel):
     pdf_url: str
     score: float
 
+class Fragment(BaseModel):
+    nazwa: str
+    kategoria: str
+    dni: int
+    pdf_url: str
+    fragment: str 
+    score: float
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -42,6 +50,21 @@ def search(q: str) -> list[Course]:
             score=doc.score,
         )
         for doc in hybrid_search.search(q)
+    ]
+
+@app.get("/search/chunks")
+def search_chunks(q: str) -> list[Fragment]:
+    """Wyszukiwanie hybrydowe po fragmentach programów szkoleń (kolekcja szkolenia_chunki — buduje ją usługa indexer)."""
+    return [
+        Fragment(
+            nazwa=doc.meta["nazwa"],
+            kategoria=doc.meta["kategoria"],
+            dni=int(doc.meta["dni"]),
+            pdf_url=doc.meta["pdf_url"],
+            fragment=doc.content.partition("\n")[2],  # bez pierwszej linii — tytułu szkolenia (patrz indexer.split_program)
+            score=doc.score,
+        )
+        for doc in hybrid_search_chunks.search(q)
     ]
 
 
