@@ -62,8 +62,8 @@ if __name__ == "__main__":
     query = " ".join(sys.argv[1:]) or "wolumeny i sieci w docker compose"
     print(f"Zapytanie: {query}\n")
     for doc in search(query):
-        # Pierwsza linia fragmentu to tytuł szkolenia (patrz indexer.split_program), dalej punkt programu.
-        _, _, fragment = doc.content.partition("\n")
+        # Fragment zaczyna się od tytułu szkolenia (dokleja go indexer.py), dalej kawałek programu.
+        fragment = doc.content.removeprefix(f"{doc.meta['nazwa']}\n\n")
         print(f"{doc.score:.4f}  {doc.meta['nazwa']}  ({doc.meta['kategoria']}, {doc.meta['dni']} dni)")
         print("        " + fragment.replace("\n", "\n        "))
         print()

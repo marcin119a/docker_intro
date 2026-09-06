@@ -61,7 +61,7 @@ def search_chunks(q: str) -> list[Fragment]:
             kategoria=doc.meta["kategoria"],
             dni=int(doc.meta["dni"]),
             pdf_url=doc.meta["pdf_url"],
-            fragment=doc.content.partition("\n")[2],  # bez pierwszej linii — tytułu szkolenia (patrz indexer.split_program)
+            fragment=doc.content.removeprefix(f"{doc.meta['nazwa']}\n\n"),  # bez tytułu szkolenia, który indexer dokleja na początku
             score=doc.score,
         )
         for doc in hybrid_search_chunks.search(q)
