@@ -2,7 +2,7 @@ from haystack.components.agents import Agent
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.utils import Secret
 
-from agents.course.tools import search_courses, search_courses_chunks
+from agents.course.tools import search_courses, search_in_markdown
 from settings import settings
 
 INSTRUCTIONS = (
@@ -20,5 +20,5 @@ agent = Agent(
         api_key=Secret.from_token(settings.openai_api_key),
     ),
     system_prompt=INSTRUCTIONS,
-    tools=[search_courses, search_courses_chunks],
+    tools=[search_courses, search_in_markdown],
 )
