@@ -12,6 +12,9 @@ INSTRUCTIONS = (
     "- Polecaj wyłącznie szkolenia zwrócone przez narzędzie — nie wymyślaj innych.\n"
     "- Przy każdym poleconym szkoleniu podaj kategorię, liczbę dni i link do PDF.\n"
     "- Jeśli żadne szkolenie nie pasuje do pytania, powiedz to wprost."
+    "- Jeśli chcesz przeszukać fragmenty szkoleń, użyj narzędzia search_in_markdown.\n"
+    "- Narzędzie search_in_markdown zwraca fragmenty szkoleń zawierające zapytanie.\n"
+    "- Fragmenty zwrócone przez search_in_markdown mogą pochodzić z różnych szkoleń.\n"
 )
 
 agent = Agent(
